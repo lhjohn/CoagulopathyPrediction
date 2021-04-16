@@ -43,15 +43,17 @@ MDCR <- read_csv("cov_mdcr.csv")
 #------------------------------------------------------------------------------#
 concept_ancestor <- read_tsv("~/Downloads/vocabulary_download_v5_{ef9e6dc9-3661-4899-9f4a-e37a5f48d186}_1618481290985/CONCEPT_ANCESTOR.csv")
 
-# CCAE_filtered$name <- regmatches(CCAE_filtered$covariateName, gregexpr("(?<=:).*",CCAE_filtered$covariateName,perl=TRUE))
 CCAE_filtered <- CCAE %>%
   filter(covariateValue != 0) %>%
-  filter(str_detect(covariateName, 'condition_era group during day -365')) %>%
+  filter(str_detect(covariateName, 'condition_era group')) %>%
   select(conceptId, covariateName)
 
 # filter name field
 CCAE_filtered$covariateName <- str_trim(as.character(regmatches(CCAE_filtered$covariateName, gregexpr("(?<=:).*",CCAE_filtered$covariateName,perl=TRUE))),
                                         side = "left")
+
+CCAE_filtered <-  CCAE_filtered %>%
+  distinct()
 
 complete_hierarchy <- concept_ancestor %>%
   left_join(CCAE_filtered, by = c("descendant_concept_id" = "conceptId")) # %>%
@@ -82,3 +84,23 @@ first_roll_up <- joined_all_temp %>%
 rolled_up <- first_roll_up$descendant_concept_id %in% first_roll_up$descendant_concept_id.y
 first_roll_up$rolled_up <- rolled_up
 #--------------------------- separation of 2 ----------------------------------#
+
+complete_hierarchy_2 <- concept_ancestor %>%
+  left_join(first_roll_up, by = c("descendant_concept_id" = "ancestor_concept_id")) # %>%
+
+
+second_roll_up <- complete_hierarchy_2 %>%
+  filter(!is.na(covariateName.x)) %>%
+  filter(min_levels_of_separation == 1 & max_levels_of_separation == 1)
+
+second_roll_up <- second_roll_up %>%
+  select(-min_levels_of_separation, -max_levels_of_separation)
+
+joined_succ_temp <- second_roll_up %>%
+  left_join(second_roll_up, by = c("descendant_concept_id" = "ancestor_concept_id")) %>%
+  filter(!is.na(descendant_concept_id.y))
+
+joined_all_temp <- left_join(second_roll_up, second_roll_up, by = c("descendant_concept_id" = "ancestor_concept_id"))
+
+
+
